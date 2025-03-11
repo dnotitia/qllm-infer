@@ -1033,3 +1033,5 @@ url={https://openreview.net/forum?id=Q1u25ahSuy}
       url={https://arxiv.org/abs/2206.01861}, 
 }
 ```
+# Acknowledgment
+This project has been made possible through the support and contributions of [DNOTITIA](https://dnotitia.com/en/), whose funding and active participation have played a crucial role in its development. 
