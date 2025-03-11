@@ -1035,3 +1035,6 @@ url={https://openreview.net/forum?id=Q1u25ahSuy}
 ```
 # Acknowledgment
 This project has been made possible through the support and contributions of [DNOTITIA](https://dnotitia.com/en/), whose funding and active participation have played a crucial role in its development. 
+
+# Citation
+If you use our tool in your research or publications, we kindly ask you to cite our GitHub repository
