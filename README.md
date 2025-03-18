@@ -1034,7 +1034,13 @@ url={https://openreview.net/forum?id=Q1u25ahSuy}
 }
 ```
 # Acknowledgment
-This project has been made possible through the support and contributions of [DNOTITIA](https://dnotitia.com/en/), whose funding and active participation have played a crucial role in its development. 
+This open-source release is the result of a collaborative industry-academia project between Dinotitia and Hanyang University AIHA lab(led by Professor Jung-Wook Choi). 
+We sincerely appreciate the university's valuable contributions, including research insights, technical expertise, and academic support, which played a crucial role in the development of this work.
 
+We extend our gratitude to the faculty members, researchers, and students who participated in this project. Their dedication and expertise have significantly enriched the outcome, 
+enabling us to share this work with the open-source community.
+
+
+Dinotitia
 # Citation
 If you use our tool in your research or publications, we kindly ask you to cite our GitHub repository
