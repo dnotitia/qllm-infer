@@ -2,11 +2,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-
-def quantize(x, scale, zero, maxq):
+def quantize(x, scale, zero, maxq, sym):
     if maxq < 0:
         return (x > scale / 2).float() * scale + (x < zero / 2).float() * zero
-    q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
+    if (sym):
+        q = torch.clamp(torch.round(x / scale) + zero, -maxq, maxq)
+    else:
+        q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
     return scale * (q - zero)
 
 class Quantizer(nn.Module):
@@ -19,11 +21,15 @@ class Quantizer(nn.Module):
 
     def configure(
         self,
-        bits, perchannel=False, sym=True, 
+        bits, perchannel=False, sym=False, 
         mse=False, norm=2.4, grid=100, maxshrink=.8,
         trits=False
     ):
-        self.maxq = torch.tensor(2 ** bits - 1)
+        if (sym):
+            self.maxq = torch.tensor(2 ** (bits-1) - 1)
+        else:
+            self.maxq = torch.tensor(2 ** bits - 1)
+        self.bits = bits
         self.perchannel = perchannel
         self.sym = sym
         self.mse = mse
@@ -69,10 +75,11 @@ class Quantizer(nn.Module):
           self.scale = xmax
           self.zero = xmin
         else:
-          self.scale = (xmax - xmin) / self.maxq
           if self.sym:
-              self.zero = torch.full_like(self.scale, (self.maxq + 1) / 2)
+              self.scale = xmax / self.maxq
+              self.zero = torch.full_like(self.scale, 0)
           else:
+              self.scale = (xmax - xmin) / self.maxq
               self.zero = torch.round(-xmin / self.scale)
 
         if self.mse:
@@ -81,7 +88,10 @@ class Quantizer(nn.Module):
                 p = 1 - i / self.grid 
                 xmin1 = p * xmin
                 xmax1 = p * xmax
-                scale1 = (xmax1 - xmin1) / self.maxq
+                if (self.sym):
+                    scale1 = (xmax1) / self.maxq
+                else:
+                    scale1 = (xmax1 - xmin1) / self.maxq
                 zero1 = torch.round(-xmin1 / scale1) if not self.sym else self.zero
                 q = quantize(x, scale1.unsqueeze(1), zero1.unsqueeze(1), self.maxq)
                 q -= x
@@ -118,7 +128,7 @@ class Quantizer(nn.Module):
 
     def quantize(self, x):
         if self.ready():
-            return quantize(x, self.scale, self.zero, self.maxq)
+            return quantize(x, self.scale, self.zero, self.maxq, self.sym)
         return x
 
     def enabled(self):

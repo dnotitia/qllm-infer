@@ -1,8 +1,3 @@
-"""
-HYU-AIHA-LAB
-Quantization Framework for LLM Inferences
-"""
-
 import logging
 import transformers
 import warnings
@@ -192,12 +187,36 @@ if __name__ == '__main__':
     parser.add_argument('--use_cuda_graph', type=str2bool, default=False)
     parser.add_argument('--seed',type=int, default=0)
     # Quantization Configs
+    parser.add_argument('--a_per_tensor', type=str2bool, default=False)
+    parser.add_argument('--a_per_token', type=str2bool, default=False)
     parser.add_argument('--bits_a', type=int, default=16)
     parser.add_argument('--sym_a', type=str2bool, default=False)
     parser.add_argument('--groupsize_a', type=int, default=-1)
+    parser.add_argument('--w_per_channel', type=str2bool, default=False)
     parser.add_argument('--bits_w', type=int, default=4)
     parser.add_argument('--sym_w', type=str2bool, default=False)
     parser.add_argument('--groupsize_w', type=int, default=-1)
+    parser.add_argument('--q_per_tensor', type=str2bool, default=False)
+    parser.add_argument('--q_per_token', type=str2bool, default=False)
+    parser.add_argument('--bits_q', type=int, default=16)
+    parser.add_argument('--sym_q', type=str2bool, default=False)
+    parser.add_argument('--groupsize_q', type=int, default=-1)
+    parser.add_argument('--k_per_tensor', type=str2bool, default=False)
+    parser.add_argument('--k_per_token', type=str2bool, default=False)
+    parser.add_argument('--bits_k', type=int, default=16)
+    parser.add_argument('--sym_k', type=str2bool, default=False)
+    parser.add_argument('--groupsize_k', type=int, default=-1)
+    parser.add_argument('--v_per_tensor', type=str2bool, default=False)
+    parser.add_argument('--v_per_token', type=str2bool, default=False)
+    parser.add_argument('--bits_v', type=int, default=16)
+    parser.add_argument('--sym_v', type=str2bool, default=False)
+    parser.add_argument('--groupsize_v', type=int, default=-1)
+    parser.add_argument('--s_per_tensor', type=str2bool, default=False)
+    parser.add_argument('--s_per_token', type=str2bool, default=False)
+    parser.add_argument('--bits_s', type=int, default=16)
+    parser.add_argument('--sym_s', type=str2bool, default=False)
+    parser.add_argument('--groupsize_s', type=int, default=-1)
+
     # SmoothQuant Configs
     parser.add_argument('--llm_int8', type=str2bool, default=False)
     parser.add_argument('--smoothquant', type=str2bool, default=False)
