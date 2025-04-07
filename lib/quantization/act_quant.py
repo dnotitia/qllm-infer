@@ -82,7 +82,7 @@ class ActQuantLinear(nn.Linear):
 
         return out
 
-class ActQuantMatMul1(nn.Module):
+class QK_QuantMatMul(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.perchannel_q = not args.q_per_tensor
@@ -156,7 +156,7 @@ class ActQuantMatMul1(nn.Module):
             qB = B
         return qA @ qB
     
-class ActQuantMatMul2(nn.Module):
+class SV_QuantMatMul(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.perchannel_s = not args.s_per_tensor
@@ -232,8 +232,8 @@ def add_act_quant(model, args):
     from transformers.models.llama.modeling_llama import LlamaAttention
     for name, module in model.named_modules():
         if isinstance(module, LlamaAttention):
-            setattr(module, "matmul1", ActQuantMatMul1(args))
-            setattr(module, "matmul2", ActQuantMatMul2(args))
+            setattr(module, "Query_Key_matmul", QK_QuantMatMul(args))
+            setattr(module, "Softmax_Value_matmul", SV_QuantMatMul(args))
             module.forward = MethodType(attention.llama_attn_forward, module)
             
     wrapped_modules={}

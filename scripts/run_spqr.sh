@@ -1,6 +1,6 @@
 #/bin/bash
 
-export HF_HOME=/raid/hf_cache
+export HF_HOME=~/.cache/huggingface
 export HF_DATASETS_TRUST_REMOTE_CODE=1
 
 # llama3.1-8b-instruct, avg_bits: 3.99
