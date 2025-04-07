@@ -42,7 +42,7 @@ class ActQuantLinear(nn.Linear):
             self.stats = None
 
     def forward(self, x):
-        if self.bit <= 16:
+        if self.bit < 16:
             shape_ = x.shape
             if self.groupsize > 0:
                 qx = x.reshape(-1, self.groupsize)
