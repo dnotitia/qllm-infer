@@ -85,7 +85,7 @@ def opt_sequential(model, dataloader, dev, args=None):
                 gptq[name] = GPTQ(subset[name])
                 gptq[name].quantizer = Quantizer()
                 gptq[name].quantizer.configure(
-                    args.bits_w, perchannel=True, sym=args.sym_w, mse=False
+                    args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
                 )
 
             def add_batch(name):
@@ -191,7 +191,7 @@ def llama_sequential(model, dataloader, dev, args=None):
                 gptq[name] = GPTQ(subset[name])
                 gptq[name].quantizer = Quantizer()
                 gptq[name].quantizer.configure(
-                    args.bits_w, perchannel=True, sym=args.sym_w, mse=False
+                    args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
                 )
 
             def add_batch(name):
@@ -256,7 +256,7 @@ def quantize_nearest(model, args, dev):
         for name in subset:
             quantizer = Quantizer()
             quantizer.configure(
-                args.bits_w, perchannel=True, sym=args.sym_w, mse=False
+                args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
             )
             W = subset[name].weight.data
             shape_ = W.shape
@@ -264,7 +264,7 @@ def quantize_nearest(model, args, dev):
                 W = W.reshape(-1, args.groupsize_w)
             quantizer.find_params(W, weight=True)
             qW = quantize(
-                W, quantizer.scale, quantizer.zero, quantizer.maxq
+                W, quantizer.scale, quantizer.zero, quantizer.maxq, args.sym_w
             ).to(next(iter(layer.parameters())).dtype)
             qW = qW.reshape(shape_)
             subset[name].weight.data = qW
