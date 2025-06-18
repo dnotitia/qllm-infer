@@ -59,7 +59,7 @@ class GPTQ:
         self.H += inp.matmul(inp.t())
 
     def fasterquant(
-        self, blocksize=128, percdamp=.01, groupsize=-1, actorder=False, static_groups=False
+        self, blocksize=128, percdamp=.01, groupsize=128, sym=False, r_bit=4, r_group=128, bit=8, qrazor=False, actorder=False, static_groups=False
     ):
         W = self.layer.weight.data.clone()
         if isinstance(self.layer, nn.Conv2d):
@@ -129,7 +129,7 @@ class GPTQ:
                         self.quantizer = groups[idx // groupsize]
 
                 q = quantize(
-                    w.unsqueeze(1), self.quantizer.scale, self.quantizer.zero, self.quantizer.maxq
+                    w.unsqueeze(1), self.quantizer.scale, self.quantizer.zero, self.quantizer.maxq, sym, r_bit, r_group, bit, qrazor
                 ).flatten()
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d ** 2

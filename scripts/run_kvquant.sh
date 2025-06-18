@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export HF_HOME=/.cache/huggingface
+export HF_HOME=~/.cache/huggingface
 export HF_DATASETS_TRUST_REMOTE_CODE=1
 
 DEVICES=$1
@@ -8,8 +8,8 @@ model_path=$2
 cache_dir='./cache'
 
 # tasks='boolq,arc_challenge,arc_easy,hellaswag,piqa,winogrande,mmlu' # pefill only
-# tasks='gsm8k,truthfulqa' # prefill and decoding
-tasks=none
+ tasks='gsm8k,truthfulqa' # prefill and decoding
+#tasks=none
 
 num_fewshot=none
 limit=none
@@ -44,7 +44,7 @@ gptq_act_order=false
 gptq_static_groups=false
 
 # KIVI
-kivi=false
+kivi=true
 kivi_prefill_with_quant=true # set to false for generative tasks
 kivi_k_bits=4 # 4, 2
 kivi_v_bits=4 # 4, 2

@@ -1,12 +1,57 @@
 import logging
+import sys
+
+if "--model_path" in sys.argv:
+    idx = sys.argv.index("--model_path")
+    model_arg = sys.argv[idx+1] if idx+1 < len(sys.argv) else ""
+else:
+    model_arg = sys.argv[1] if len(sys.argv) > 1 else ""
+
+model_lower = model_arg.lower()
+
+if "llama" in model_lower:
+    import transformers.models.llama.modeling_llama as llama_backend
+    from lib.quantization.attention import llama_attn_forward 
+
+    llama_backend.LlamaAttention.forward = llama_attn_forward
+
+    print(f"[patch] replaced LlamaAttention.forward with llama_attn_forward for {model_arg}",
+          file=sys.stderr)
+
+elif "gemma-3" in model_lower:
+    import transformers.models.gemma3.modeling_gemma3 as gemma3_backend
+    from lib.quantization.attention import gemma3_attn_forward
+
+    gemma3_backend.Gemma3Attention.forward = gemma3_attn_forward
+
+    print(f"[patch] replaced Gemma3Attention.forward with gemma3_attn_forward for {model_arg}",
+          file=sys.stderr)
+    
+elif "qwen3" in model_lower:
+    import transformers.models.qwen3.modeling_qwen3 as qwen3_backend
+    from lib.quantization.attention import qwen3_attn_forward
+
+    qwen3_backend.Qwen3Attention.forward = qwen3_attn_forward
+
+    print(f"[patch] replaced Qwen3Attention.forward with qwen3_attn_forward for {model_arg}",
+          file=sys.stderr)
+
+elif "opt" in model_lower:
+    print("Don't requrie any patch for OPT model", file=sys.stderr)
+
+else:
+    print(f"[warn] model_path keyword not recognized, no attention patch: {model_arg}", file=sys.stderr)
+
 import transformers
 import warnings
 import torch
+import huggingface_hub
 from transformers import BitsAndBytesConfig
 logging.basicConfig(level=logging.INFO)
 warnings.filterwarnings("ignore")
 
 def main(args):
+    huggingface_hub.login('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')
     if args.llm_int8:
         quantization_config = BitsAndBytesConfig(
         load_in_8bit=True, 
@@ -17,10 +62,23 @@ def main(args):
     from utils.import_model import model_from_hf_path
     model = model_from_hf_path(args.model_path,
                 args.use_cuda_graph,
-                device_map='auto',
-                quantization_config=quantization_config,
+                device_map ='auto',
+                quantization_config = quantization_config,
             ).eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_path)
+
+    _cfg_map = {
+    "k_pre_RoPE_quant": "k_pre_RoPE_quant",
+    "bits_k":           "bits_k",
+    "k_qrazor_bits":    "k_qrazor_bits",
+    "k_qrazor_group":   "k_qrazor_group",
+    "k_qrazor":         "k_qrazor",
+    "k_perchannel":     "k_per_tensor",   
+    "sym_k":            "sym_k",
+    }
+    
+    for cfg_key, arg_key in _cfg_map.items():
+        setattr(model.config, cfg_key, getattr(args, arg_key))
 
     # Smooth Model
     if args.smoothquant:
@@ -62,7 +120,7 @@ def main(args):
                     print("Applied nearest quantization.")
     
         # Activation Quantization
-        if args.bits_a < 16 or args.analyze_stats: # Using custom Linear
+        if args.bits_a <= 16 or args.analyze_stats: # Using custom Linear
             from lib.quantization.act_quant import add_act_quant
             add_act_quant(model, args)
 
@@ -75,7 +133,7 @@ def main(args):
         
         print("\n********** KV Cache Quantization: KIVI **********\n")
 
-        from lib.kivi.models.llama_kivi_qllm import LlamaForCausalLM_KIVI
+        from lib.kivi.models.llama_kivi import LlamaForCausalLM_KIVI
 
         # Support only INT4/INT2 Quantization of KV Cache
         assert args.kivi_k_bits in [4, 2] and args.kivi_v_bits in [4, 2]
@@ -140,7 +198,7 @@ def main(args):
     results = dict()
     if args.chat:
         from utils.chatbot import chatbot_play
-        chatbot_play(model, tokenizer, max_new_tokens=128, device='cuda')
+        chatbot_play(model, tokenizer, max_new_tokens=2048, device='cuda')
     if args.niah:
         from utils.needle_in_a_haystack.needle_in_a_haystack_example import niah_example
         niah_example(model, tokenizer)
@@ -192,30 +250,54 @@ if __name__ == '__main__':
     parser.add_argument('--bits_a', type=int, default=16)
     parser.add_argument('--sym_a', type=str2bool, default=False)
     parser.add_argument('--groupsize_a', type=int, default=-1)
+    parser.add_argument('--a_qrazor_bits', type=int, default=16)
+    parser.add_argument('--a_qrazor_group', type=int, default=32)
+    parser.add_argument('--a_qrazor', type=str2bool, default=False)
+    #---------------------------------------------------------------------#
     parser.add_argument('--w_per_channel', type=str2bool, default=False)
     parser.add_argument('--bits_w', type=int, default=4)
     parser.add_argument('--sym_w', type=str2bool, default=False)
     parser.add_argument('--groupsize_w', type=int, default=-1)
+    parser.add_argument('--w_qrazor_bits', type=int, default=16)
+    parser.add_argument('--w_qrazor_group', type=int, default=32)
+    parser.add_argument('--w_qrazor', type=str2bool, default=False)
+    #---------------------------------------------------------------------#
     parser.add_argument('--q_per_tensor', type=str2bool, default=False)
     parser.add_argument('--q_per_token', type=str2bool, default=False)
     parser.add_argument('--bits_q', type=int, default=16)
     parser.add_argument('--sym_q', type=str2bool, default=False)
     parser.add_argument('--groupsize_q', type=int, default=-1)
+    parser.add_argument('--q_qrazor_bits', type=int, default=16)
+    parser.add_argument('--q_qrazor_group', type=int, default=32)
+    parser.add_argument('--q_qrazor', type=str2bool, default=False)
+    #---------------------------------------------------------------------#
+    parser.add_argument('--k_pre_RoPE_quant', type=str2bool, default=False)
     parser.add_argument('--k_per_tensor', type=str2bool, default=False)
     parser.add_argument('--k_per_token', type=str2bool, default=False)
     parser.add_argument('--bits_k', type=int, default=16)
     parser.add_argument('--sym_k', type=str2bool, default=False)
     parser.add_argument('--groupsize_k', type=int, default=-1)
+    parser.add_argument('--k_qrazor_bits', type=int, default=16)
+    parser.add_argument('--k_qrazor_group', type=int, default=32)
+    parser.add_argument('--k_qrazor', type=str2bool, default=False)
+    #---------------------------------------------------------------------#
     parser.add_argument('--v_per_tensor', type=str2bool, default=False)
     parser.add_argument('--v_per_token', type=str2bool, default=False)
     parser.add_argument('--bits_v', type=int, default=16)
     parser.add_argument('--sym_v', type=str2bool, default=False)
     parser.add_argument('--groupsize_v', type=int, default=-1)
+    parser.add_argument('--v_qrazor_bits', type=int, default=16)
+    parser.add_argument('--v_qrazor_group', type=int, default=32)
+    parser.add_argument('--v_qrazor', type=str2bool, default=False)
+    #---------------------------------------------------------------------#
     parser.add_argument('--s_per_tensor', type=str2bool, default=False)
     parser.add_argument('--s_per_token', type=str2bool, default=False)
     parser.add_argument('--bits_s', type=int, default=16)
     parser.add_argument('--sym_s', type=str2bool, default=False)
     parser.add_argument('--groupsize_s', type=int, default=-1)
+    parser.add_argument('--s_qrazor_bits', type=int, default=16)
+    parser.add_argument('--s_qrazor_group', type=int, default=32)
+    parser.add_argument('--s_qrazor', type=str2bool, default=False)
 
     # SmoothQuant Configs
     parser.add_argument('--llm_int8', type=str2bool, default=False)

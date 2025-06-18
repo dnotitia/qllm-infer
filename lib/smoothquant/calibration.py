@@ -48,6 +48,10 @@ def get_act_scales(model, tokenizer, smoothquant_dataset, num_samples=512, seq_l
             with open(dataset_path,'wb') as file:
                 file.write(response.content)
             logging.info(f"Downloaded file saved as: {dataset_path}")
+
+#    elif smoothquant_dataset == 'wikitext2':
+#        dataset_path = f'{args.cache_dir}/dataset/wikitext-2-raw-v1/wikitext-2-raw-v1.json'
+
     else:
         logging.error('Only Pile Dataset Supports')
         raise NotImplementedError

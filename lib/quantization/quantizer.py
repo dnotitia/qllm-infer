@@ -1,14 +1,30 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from lib.qrazor.qrazor import QRazor
 
-def quantize(x, scale, zero, maxq, sym):
+def quantize(x, scale, zero, maxq, sym, r_bit, r_group, bits, qrazor):
     if maxq < 0:
         return (x > scale / 2).float() * scale + (x < zero / 2).float() * zero
     if (sym):
         q = torch.clamp(torch.round(x / scale) + zero, -maxq, maxq)
     else:
         q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
+
+
+    if qrazor:
+        if not sym:
+            sign = torch.sign(q-zero)
+            q_abs = torch.abs(q-zero)
+            q = QRazor.apply(q_abs, bits, r_bit, r_group)
+            q = sign * q + zero
+            
+        else:
+            sign = torch.sign(q)         # -1, 0, 1 중 하나
+            q_abs = torch.abs(q)
+            q = QRazor.apply(q_abs, bits, r_bit, r_group)
+            q = sign * q
+
     return scale * (q - zero)
 
 class Quantizer(nn.Module):
@@ -21,25 +37,30 @@ class Quantizer(nn.Module):
 
     def configure(
         self,
-        bits, perchannel=False, sym=False, 
+        bits, r_bit, r_group, qrazor=False, perchannel=False, sym=False, 
         mse=False, norm=2.4, grid=100, maxshrink=.8,
-        trits=False
+        trits=False, comp_aware=False 
     ):
         if (sym):
             self.maxq = torch.tensor(2 ** (bits-1) - 1)
         else:
             self.maxq = torch.tensor(2 ** bits - 1)
+        self.comp_aware = comp_aware
         self.bits = bits
+        self.r_bit = r_bit
+        self.r_group = r_group
+        self.qrazor = qrazor
         self.perchannel = perchannel
         self.sym = sym
         self.mse = mse
         self.norm = norm
         self.grid = grid
-        self.maxshrink = maxshrink 
+        self.maxshrink = maxshrink
         if trits:
             self.maxq = torch.tensor(-1) 
 
     def find_params(self, x, weight=False):
+
         dev = x.device
         self.maxq = self.maxq.to(dev)
 
@@ -59,6 +80,7 @@ class Quantizer(nn.Module):
             x = x.flatten().unsqueeze(0)
 
         tmp = torch.zeros(x.shape[0], device=dev)
+
         xmin = torch.minimum(x.min(1)[0], tmp)
         xmax = torch.maximum(x.max(1)[0], tmp)
 
@@ -81,8 +103,10 @@ class Quantizer(nn.Module):
           else:
               self.scale = (xmax - xmin) / self.maxq
               self.zero = torch.round(-xmin / self.scale)
+        
 
         if self.mse:
+            #print("Using MSE for quantization")
             best = torch.full([x.shape[0]], float('inf'), device=dev)
             for i in range(int(self.maxshrink * self.grid)):
                 p = 1 - i / self.grid 
@@ -93,7 +117,7 @@ class Quantizer(nn.Module):
                 else:
                     scale1 = (xmax1 - xmin1) / self.maxq
                 zero1 = torch.round(-xmin1 / scale1) if not self.sym else self.zero
-                q = quantize(x, scale1.unsqueeze(1), zero1.unsqueeze(1), self.maxq)
+                q = quantize(x, scale1.unsqueeze(1), zero1.unsqueeze(1), self.maxq, self.sym, self.r_bit, self.r_group, self.bits, self.qrazor)
                 q -= x
                 q.abs_()
                 q.pow_(self.norm)
@@ -103,6 +127,30 @@ class Quantizer(nn.Module):
                     best[tmp] = err[tmp]
                     self.scale[tmp] = scale1[tmp]
                     self.zero[tmp] = zero1[tmp]
+
+        if self.qrazor and self.comp_aware:
+            # x:  (C, N)  -- 위쪽 코드에서 perchannel 정규화된 형태
+            scale  = self.scale.unsqueeze(1)   # (C,1)
+            zero   = self.zero.unsqueeze(1)    # (C,1)  (sym일 때는 0)
+
+            # QRazor까지 포함한 ‘모사 양자화’ 실행
+            x_hat  = quantize(
+                x, scale, zero, self.maxq, self.sym,
+                self.r_bit, self.r_group, self.bits, self.qrazor)
+
+            # x_hat = scale * (q_int)  이므로  q_int = x_hat / scale
+            q_int  = x_hat / scale
+
+            # 최소제곱:  s* = <x, q_int> / <q_int, q_int>
+            num = (x * q_int).sum(dim=1)
+            den = (q_int.pow(2)).sum(dim=1).clamp_min(1e-12)
+            s_ls = num / den         # (C,)
+
+            # 스케일만 갱신 (제로포인트는 그대로)
+            self.scale = s_ls
+
+
+
         if not self.perchannel:
             if weight:
                 tmp = shape[0]
@@ -128,7 +176,7 @@ class Quantizer(nn.Module):
 
     def quantize(self, x):
         if self.ready():
-            return quantize(x, self.scale, self.zero, self.maxq, self.sym)
+            return quantize(x, self.scale, self.zero, self.maxq, self.sym, self.r_bit, self.r_group, self.bits, self.qrazor)
         return x
 
     def enabled(self):
