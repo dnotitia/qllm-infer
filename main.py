@@ -45,13 +45,11 @@ else:
 import transformers
 import warnings
 import torch
-import huggingface_hub
 from transformers import BitsAndBytesConfig
 logging.basicConfig(level=logging.INFO)
 warnings.filterwarnings("ignore")
 
 def main(args):
-    huggingface_hub.login('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')
     if args.llm_int8:
         quantization_config = BitsAndBytesConfig(
         load_in_8bit=True, 
