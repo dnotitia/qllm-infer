@@ -3,7 +3,7 @@ import random
 import logging
 import gc
 from datasets import load_dataset
-from lib.quantization.act_quant import ActQuantLinear, ActQuantMatMul
+from lib.quantization.act_quant import ActQuantLinear, ActQuantMatMul1, ActQuantMatMul2
 from lib.quantization.metric import sqnr, mse
 
 def summarize_stats(model, tokenizer, fp_state_dict, args):

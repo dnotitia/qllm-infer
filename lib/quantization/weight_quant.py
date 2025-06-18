@@ -85,7 +85,7 @@ def opt_sequential(model, dataloader, dev, args=None):
                 gptq[name] = GPTQ(subset[name])
                 gptq[name].quantizer = Quantizer()
                 gptq[name].quantizer.configure(
-                    args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
+                    args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=False
                 )
 
             def add_batch(name):
@@ -166,6 +166,7 @@ def llama_sequential(model, dataloader, dev, args=None):
     outs = torch.zeros_like(inps)
     attention_mask = cache['attention_mask']
     position_ids = cache['position_ids']
+    position_embeddings = model.model.rotary_emb(inps[:1], position_ids)
 
     quantizers = {}
     for i in range(len(layers)):
@@ -191,7 +192,7 @@ def llama_sequential(model, dataloader, dev, args=None):
                 gptq[name] = GPTQ(subset[name])
                 gptq[name].quantizer = Quantizer()
                 gptq[name].quantizer.configure(
-                    args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
+                    args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=False
                 )
 
             def add_batch(name):
@@ -202,20 +203,28 @@ def llama_sequential(model, dataloader, dev, args=None):
             for name in subset:
                 handles.append(subset[name].register_forward_hook(add_batch(name)))
             for j in range(args.gptq_nsamples):
-                outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids)[0]
+                outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
             for h in handles:
                 h.remove()
 
             for name in subset:
                 logging.info(f'Quantizing layer {i}: {name}')
                 gptq[name].fasterquant(
-                    percdamp=args.gptq_percdamp, groupsize=args.groupsize_w, actorder=args.gptq_act_order, static_groups=args.gptq_static_groups
+                    percdamp=args.gptq_percdamp, 
+                    groupsize=args.groupsize_w, 
+                    sym=args.sym_w, 
+                    r_bit=args.w_qrazor_bits, 
+                    r_group=args.w_qrazor_group, 
+                    bit=args.bits_w,
+                    qrazor=args.w_qrazor,
+                    actorder=args.gptq_act_order, 
+                    static_groups=args.gptq_static_groups
                 )
                 quantizers['model.layers.%d.%s' % (i, name)] = gptq[name].quantizer
                 gptq[name].free()
 
         for j in range(args.gptq_nsamples):
-            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids)[0]
+            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
 
         #layers[i] = layer.cpu()
         del layer
@@ -228,25 +237,254 @@ def llama_sequential(model, dataloader, dev, args=None):
     
     return quantizers
 
+
+@torch.no_grad()
+def gemma3_sequential(model, dataloader, dev, args=None):
+    logging.info('Starting GPTQ ...')
+
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
+    layers = model.model.layers
+
+    #model.model.embed_tokens = model.model.embed_tokens.to(dev)
+    #model.model.norm = model.model.norm.to(dev)
+    #layers[0] = layers[0].to(dev)
+
+    dtype = next(iter(model.parameters())).dtype
+    inps = torch.zeros(
+        (args.gptq_nsamples, args.gptq_seqlen, model.config.hidden_size), dtype=dtype, device=dev
+    )
+    cache = {'i': 0, 'attention_mask': None}
+
+    class Catcher(nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+        def forward(self, inp, **kwargs):
+            inps[cache['i']] = inp
+            cache['i'] += 1
+            cache['attention_mask'] = kwargs['attention_mask']
+            cache['position_ids'] = kwargs['position_ids']
+            raise ValueError
+    layers[0] = Catcher(layers[0])
+    for batch in dataloader:
+        try:
+            model(batch[0].to(dev))
+        except ValueError:
+            pass
+    layers[0] = layers[0].module
+
+    #layers[0] = layers[0].cpu()
+    #model.model.embed_tokens = model.model.embed_tokens.cpu()
+    #model.model.norm = model.model.norm.cpu()
+    torch.cuda.empty_cache()
+
+    outs = torch.zeros_like(inps)
+    attention_mask = cache['attention_mask']
+    position_ids = cache['position_ids']
+    position_embeddings = model.model.rotary_emb(inps[:1], position_ids)
+
+    quantizers = {}
+    for i in range(len(layers)):
+        #layer = layers[i].to(dev)
+        layer = layers[i]
+        full = find_layers(layer)
+
+        if args.gptq_true_sequential:
+            sequential = [
+                ['self_attn.k_proj', 'self_attn.v_proj', 'self_attn.q_proj'],
+                ['self_attn.o_proj'],
+                ['mlp.up_proj', 'mlp.gate_proj'],
+                ['mlp.down_proj']
+            ]
+        else:
+            sequential = [list(full.keys())]
+       
+        for names in sequential:
+            subset = {n: full[n] for n in names}
+
+            gptq = {}
+            for name in subset:
+                gptq[name] = GPTQ(subset[name])
+                gptq[name].quantizer = Quantizer()
+                gptq[name].quantizer.configure(
+                    args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=False
+                )
+
+            def add_batch(name):
+                def tmp(_, inp, out):
+                    gptq[name].add_batch(inp[0].data, out.data)
+                return tmp
+            handles = []
+            for name in subset:
+                handles.append(subset[name].register_forward_hook(add_batch(name)))
+            for j in range(args.gptq_nsamples):
+                outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
+            for h in handles:
+                h.remove()
+
+            for name in subset:
+                logging.info(f'Quantizing layer {i}: {name}')
+                gptq[name].fasterquant(
+                    percdamp=args.gptq_percdamp, groupsize=args.groupsize_w, actorder=args.gptq_act_order, static_groups=args.gptq_static_groups
+                )
+                quantizers['model.layers.%d.%s' % (i, name)] = gptq[name].quantizer
+                gptq[name].free()
+
+        for j in range(args.gptq_nsamples):
+            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
+
+        #layers[i] = layer.cpu()
+        del layer
+        del gptq 
+        torch.cuda.empty_cache()
+
+        inps, outs = outs, inps
+
+    model.config.use_cache = use_cache
+    
+    return quantizers
+
+
+@torch.no_grad()
+def qwen3_sequential(model, dataloader, dev, args=None):
+    logging.info('Starting GPTQ ...')
+
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
+    layers = model.model.layers
+
+    #model.model.embed_tokens = model.model.embed_tokens.to(dev)
+    #model.model.norm = model.model.norm.to(dev)
+    #layers[0] = layers[0].to(dev)
+
+    dtype = next(iter(model.parameters())).dtype
+    inps = torch.zeros(
+        (args.gptq_nsamples, args.gptq_seqlen, model.config.hidden_size), dtype=dtype, device=dev
+    )
+    cache = {'i': 0, 'attention_mask': None}
+
+    class Catcher(nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+        def forward(self, inp, **kwargs):
+            inps[cache['i']] = inp
+            cache['i'] += 1
+            cache['attention_mask'] = kwargs['attention_mask']
+            cache['position_ids'] = kwargs['position_ids']
+            raise ValueError
+    layers[0] = Catcher(layers[0])
+    for batch in dataloader:
+        try:
+            model(batch[0].to(dev))
+        except ValueError:
+            pass
+    layers[0] = layers[0].module
+
+    #layers[0] = layers[0].cpu()
+    #model.model.embed_tokens = model.model.embed_tokens.cpu()
+    #model.model.norm = model.model.norm.cpu()
+    torch.cuda.empty_cache()
+
+    outs = torch.zeros_like(inps)
+    attention_mask = cache['attention_mask']
+    position_ids = cache['position_ids']
+    position_embeddings = model.model.rotary_emb(inps[:1], position_ids)
+
+    quantizers = {}
+    for i in range(len(layers)):
+        #layer = layers[i].to(dev)
+        layer = layers[i]
+        full = find_layers(layer)
+
+        if args.gptq_true_sequential:
+            sequential = [
+                ['self_attn.k_proj', 'self_attn.v_proj', 'self_attn.q_proj'],
+                ['self_attn.o_proj'],
+                ['mlp.up_proj', 'mlp.gate_proj'],
+                ['mlp.down_proj']
+            ]
+        else:
+            sequential = [list(full.keys())]
+       
+        for names in sequential:
+            subset = {n: full[n] for n in names}
+
+            gptq = {}
+            for name in subset:
+                gptq[name] = GPTQ(subset[name])
+                gptq[name].quantizer = Quantizer()
+                gptq[name].quantizer.configure(
+                    args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=False
+                )
+
+            def add_batch(name):
+                def tmp(_, inp, out):
+                    gptq[name].add_batch(inp[0].data, out.data)
+                return tmp
+            handles = []
+            for name in subset:
+                handles.append(subset[name].register_forward_hook(add_batch(name)))
+            for j in range(args.gptq_nsamples):
+                outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
+            for h in handles:
+                h.remove()
+
+            for name in subset:
+                logging.info(f'Quantizing layer {i}: {name}')
+                gptq[name].fasterquant(
+                    percdamp=args.gptq_percdamp, groupsize=args.groupsize_w, actorder=args.gptq_act_order, static_groups=args.gptq_static_groups
+                )
+                quantizers['model.layers.%d.%s' % (i, name)] = gptq[name].quantizer
+                gptq[name].free()
+
+        for j in range(args.gptq_nsamples):
+            outs[j] = layer(inps[j].unsqueeze(0), attention_mask=attention_mask, position_ids=position_ids, position_embeddings=position_embeddings)[0]
+
+        #layers[i] = layer.cpu()
+        del layer
+        del gptq 
+        torch.cuda.empty_cache()
+
+        inps, outs = outs, inps
+
+    model.config.use_cache = use_cache
+    
+    return quantizers
+
+
 def quantize_gptq(model, args, dev):
+    if hasattr(model, "language_model"):
+        model = model.language_model
     from utils.data_utils import get_loaders
     dataloader = get_loaders(
         args.gptq_dataset, nsamples=args.gptq_nsamples,
         seed=args.seed, model=args.model_path,
         seqlen=args.gptq_seqlen, cache_dir=args.cache_dir,
     )
-    if 'llama' in args.model_path:
+    if 'llama' in args.model_path or 'Llama' in args.model_path:
         quantizers = llama_sequential(model, dataloader, dev, args)
     elif 'opt' in args.model_path:
         quantizers = opt_sequential(model, dataloader, dev, args)
+    elif 'gemma-3' in args.model_path:
+        quantizers = gemma3_sequential(model, dataloader, dev, args)
+    elif 'Qwen3' in args.model_path:
+        quantizers = qwen3_sequential(model, dataloader, dev, args)
     else:
         raise NotImplementedError
 
 def quantize_nearest(model, args, dev):
-    if 'llama' in args.model_path:
+    if hasattr(model, "language_model"):
+        model = model.language_model
+    if 'llama' in args.model_path or 'Llama' in args.model_path:
         layers = model.model.layers
     elif 'opt' in args.model_path:
         layers = model.model.decoder.layers
+    elif 'gemma-3' in args.model_path:
+        layers = model.model.layers
+    elif 'Qwen3' in args.model_path:
+        layers = model.model.layers
     for i in range(len(layers)):
         logging.info(f'Quantizing layer {i}')
         #layer = layers[i].to(dev)
@@ -256,7 +494,7 @@ def quantize_nearest(model, args, dev):
         for name in subset:
             quantizer = Quantizer()
             quantizer.configure(
-                args.bits_w, args.w_per_channel, sym=args.sym_w, mse=False
+                args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=True
             )
             W = subset[name].weight.data
             shape_ = W.shape
@@ -264,7 +502,7 @@ def quantize_nearest(model, args, dev):
                 W = W.reshape(-1, args.groupsize_w)
             quantizer.find_params(W, weight=True)
             qW = quantize(
-                W, quantizer.scale, quantizer.zero, quantizer.maxq, args.sym_w
+                W, quantizer.scale, quantizer.zero, quantizer.maxq, args.sym_w, args.w_qrazor_bits, args.w_qrazor_group, args.bits_w, args.w_qrazor
             ).to(next(iter(layer.parameters())).dtype)
             qW = qW.reshape(shape_)
             subset[name].weight.data = qW
@@ -453,10 +691,14 @@ def spqr_sequential(model, dataloader, args, dev):
             for sublayer_name in subset:
                 handles.append(subset[sublayer_name].register_forward_hook(add_batch(sublayer_name)))
             for j in range(args.gptq_nsamples):
-                if 'llama' in args.model_path:
+                if 'llama' in args.model_path or 'Llama' in args.model_path:
                     outs[j] = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
                 elif 'opt' in args.model_path:
                     outs[j] = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'])[0]
+                elif 'gemma-3' in args.model_path or 'Gemma-3' in args.model_path:
+                    outs[j] = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
+                elif 'qwen3' in args.model_path or 'Qwen3' in args.model_path:
+                    outs[j] = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
                 #if args.spqr_offload_activations:
                 #    outs[j] = outs[j].cpu()
             for h in handles:
@@ -506,6 +748,10 @@ def spqr_sequential(model, dataloader, args, dev):
                 outs_batch = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
             elif 'opt' in args.model_path:
                 outs_batch = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'])[0]
+            if 'gemma-3' in args.model_path:
+                outs_batch = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
+            if 'Qwen3' in args.model_path:
+                outs_batch = layer(inps[j].unsqueeze(0), attention_mask=forward_args['attention_mask'], position_ids=forward_args['position_ids'])[0]
             if not args.spqr_skip_out_loss:
                 outs_batch_loss = (
                     (outs_batch - outs[j].to(layer_dev))

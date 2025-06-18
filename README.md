@@ -9,10 +9,12 @@ This project aims to unify and compare these quantization techniques within a si
   - SmoothQuant: Accurate and Efficient Post-Training Quantization for Large Language Models
   - LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale
   - ZeroQuant: Efficient and Affordable Post-Training Quantization for Large-Scale Transformers
+  - QRazor(W4A4KV4): Reliable and Effortless 4-bit LLM Quantization by Significant Data Razoring
 - Weight-Only Quantization
   - GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers
   - LUT-GEMM: Quantized Matrix Multiplication based on LUTs for Efficient Inference in Large-Scale Generative Language Models
   - SpQR: A Sparse-Quantized Representation for Near-Lossless LLM Weight Compression
+  - QRazor(W4A16): Reliable and Effortless 4-bit LLM Quantization by Significant Data Razoring
 - Key-Value Cache Quantization
   - KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache
   - KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization
@@ -29,17 +31,18 @@ cd /root/qllm-infer/lm-evaluation-harness && pip install -e .
 ```
 
 ## Quick Links
-- [Weight-Activation Quantization](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#weight-activation-quantization)
-  - [SmoothQuant](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#smoothquant-accurate-and-efficient-post-training-quantization-for-large-language-models)
-  - [LLM.int8()](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#llmint8-8-bit-matrix-multiplication-for-transformers-at-scaleneurips-2022)
-  - [ZeroQuant](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#zeroquant-efficient-and-affordable-post-training-quantization-for-large-scale-transformers-neurips-2022)
-- [Weight-Only Quantization](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#weight-only-quantization)
-  - [GPTQ](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers)
-  - [LUT-GEMM](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#lut-gemm-quantized-matrix-multiplication-based-on-luts-for-efficiency-in-large-scale-generative-language-models-iclr-2024)
-  - [SPQR](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#spqr---a-sparse-quantized-representation-for-near-lossless-llm-weight-compression)
-- [KV Cache Quantization](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#kv-cache-quantization)
-  - [KIVI](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#kivi-a-tuning-free-asymmetric-2bit-quantization-for-kv-cache-icml-2024)
-  - [KVQuant](https://github.com/aiha-lab/qllm-infer?tab=readme-ov-file#kvquant-towards-10-million-context-length-llm-inference-with-kv-cache-quantization-neurips-2024)
+- [Weight-Activation Quantization](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#weight-activation-quantization)
+  - [SmoothQuant](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#smoothquant-accurate-and-efficient-post-training-quantization-for-large-language-models)
+  - [LLM.int8()](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#llmint8-8-bit-matrix-multiplication-for-transformers-at-scaleneurips-2022)
+  - [ZeroQuant](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#zeroquant-efficient-and-affordable-post-training-quantization-for-large-scale-transformers-neurips-2022)
+  - [QRazor]()
+- [Weight-Only Quantization](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#weight-only-quantization)
+  - [GPTQ](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#gptq-accurate-post-training-quantization-for-generative-pre-trained-transformers)
+  - [LUT-GEMM](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#lut-gemm-quantized-matrix-multiplication-based-on-luts-for-efficiency-in-large-scale-generative-language-models-iclr-2024)
+  - [SPQR](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#spqr---a-sparse-quantized-representation-for-near-lossless-llm-weight-compression)
+- [KV Cache Quantization](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#kv-cache-quantization)
+  - [KIVI](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#kivi-a-tuning-free-asymmetric-2bit-quantization-for-kv-cache-icml-2024)
+  - [KVQuant](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#kvquant-towards-10-million-context-length-llm-inference-with-kv-cache-quantization-neurips-2024)
 
 ***
 # Weight-Activation Quantization
@@ -64,6 +67,10 @@ The scaling factor in SmoothQuant is applied per input channel, scaling down the
   - **For activations**: To avoid runtime scaling, the scaling factor is pre-applied to the channel-wise weights and biases of the preceding LayerNorm ($X\text{diag}(s)^{-1}$).
 
 
+### Getting Started
+You can run SmoothQuant using the command ```bash scripts/run_smoothquant.sh $GPU_NUM $MODEL_PATH```.  
+```sh
+# Measuring Perplexity with SmoothQuant
 ### Getting Started
 You can run SmoothQuant using the command ```bash scripts/run_smoothquant.sh $GPU_NUM $MODEL_PATH```.  
 ```sh
@@ -398,7 +405,219 @@ Performance evaluation of the **Llama-3.1-8B-Instruct** model with ZeroQuant app
 |  **W8A8 ZeroQuant<br>(Wiki2 ppl: 7.34)**   | If I have just overtaken the third person, that means I was behind them and have now passed them. So, my current position is fourth. The person I just overtook is now in fourth place, and I am in third place.  |
 | **W4/8A16 ZeroQuant<br>(Wiki2 ppl: 8.97)** | If you have just overtaken the third person, that means you are now in the third position. The person you just overtook is now in the fourth position.                                                               |
 | **W4/8A8 ZeroQuant<br>(Wiki2 ppl: 9.17)**  | If you have just overtaken the third person, that means you are now in the third position. The person you just overtook is now in the fourth position.                                                               |
-| **W4A4 ZeroQuant<br>(Wiki2 ppl: 278.39)**  | We're back! The next step-aide conversation starting location, to be in a group of people.                                                                                                                           |
+| **W4A4 ZeroQuant<br>(Wiki2 ppl: 278.39)**  | We're back! The next step-aide conversation starting location, to be in a group of people.                                                                                 
+
+***                                       |
+## QRazor: Reliable and Effortless 4-bit LLM Quantization by Significant Data Razoring
+
+### **Summary**
+**QRazor** is a two-stage post-training quantization (PTQ) method that compresses a transformer LLM’s weights, activations, and KV cache to 4 bits without any retraining while preserving near-FP16 accuracy. In the quantization stage, it first maps weightsand activations to integers using simple absolute-max scaling to capture outliers safely. Then, in the compression stage, it applies lightweight Significant Data Razoring (SDR): for each small group of values, SDR keeps only the sign bit plus a few salient bits, discards the rest, and records the number of dropped low-order bits in a tiny flag, yielding an efficient 4-bit representation.
+
+#### **Key Steps**
+1.	**Weight, Activation, KV cache Quantization**
+- Quantize the weight, activation, kv cache tensor into 8-bit or 16-bit precision using symmetric or asymmetric quantization.
+2.	**SDR Compression**
+- Apply SDR compression to quantized tensors and generate 4-bit integer data which later could be reconstructed during GEMM operation.
+
+- **SDR Compression**:  
+  - Step 1: leading 1 detection
+    The leading 1 is determined by bitwise OR operation reducing max value search overhead compared to when data format is in floating point or bfloat.
+  - Step 2: truncate & round per group
+    Once tensors are quantized, maximum or most highly clipped value would have full usage of bits while others do not. Thus, grouping elementwise(smaller than quantization granularity) shows redundant bits between sign and first '1' bit in most groups. We truncate these redundant bits and lsb bits while rounding the latter to decrease compression error.
+
+
+### Getting Started
+You can run QRazor using the command ```bash scripts/run_qrazor.sh $GPU_NUM $MODEL_PATH```.  
+```sh
+# Measuring Perplexity with QRazor
+eval_ppl=true
+eval_ppl_seqlen=2048
+use_cuda_graph=true
+seed=0
+# Quantization
+a_per_tensor=false
+a_per_token=true
+bits_a=8
+sym_a=false
+groupsize_a=-1
+a_qrazor=true
+a_qrazor_bits=4
+a_qrazor_group=8
+w_per_channel=true
+bits_w=8
+sym_w=true
+groupsize_w=128
+w_qrazor=true
+w_qrazor_bits=4
+w_qrazor_group=8
+q_per_tensor=true
+q_per_token=false
+bits_q=16
+sym_q=true
+groupsize_q=-1
+q_qrazor=false
+q_qrazor_bits=4
+q_qrazor_group=128
+k_pre_RoPE_quant=false
+k_per_tensor=false
+k_per_token=true   #true = per-channel quant, false = per-token quant
+bits_k=8
+sym_k=false
+groupsize_k=-1
+k_qrazor=true
+k_qrazor_bits=4
+k_qrazor_group=8
+v_per_tensor=false
+v_per_token=true
+bits_v=8
+sym_v=false
+groupsize_v=-1
+v_qrazor=true
+v_qrazor_bits=4
+s_per_tensor=true
+s_per_token=false
+bits_s=16
+sym_s=false
+groupsize_s=-1
+s_qrazor=false
+s_qrazor_bits=4
+s_qrazor_group=32
+# SmoothQuant
+smoothquant=false
+smoothquant_alpha=0.85
+smoothquant_dataset=pile
+smoothquant_nsamples=512
+smoothquant_seqlen=1024
+# GPTQ
+gptq=false
+#gptq_dataset=c4
+gptq_dataset=wikitext2
+gptq_nsamples=128
+gptq_seqlen=2048
+gptq_true_sequential=false
+gptq_percdamp=0.01
+gptq_act_order=true
+gptq_static_groups=false
+
+QRazor is compatable with other quantization method such as 'Smoothquant' and 'GPTQ' in our benchmark.
+
+If you want to analyze the statistics of weights and activations before and after quantization, you can use the analysis tool included in our script.
+```sh
+# Analysis Tools
+analyze_stats=true # true false
+get_layerwise_distance=false # true false
+```
+
+
+### Implementation Details
+All implementation details are in ```lib/qrazor```.  
+**Getting Activation Statistics**
+```py
+# lib/qrazor/qrazor.py
+def forward(ctx, x, q_bit, r_bit, group):
+        raw_x = torch.reshape(x, (-1,))
+        org_len = len(raw_x)
+        if org_len % group:
+            vacant_num = group - org_len % group
+            raw_x = F.pad(raw_x, (0, vacant_num), 'constant', 0)
+        raw_x = raw_x.view(-1, group)
+        #print("before:", raw_x)
+        max_dim1, _ = raw_x.max(dim=1)
+
+        for b in range(r_bit, q_bit+1):
+            mul_xth = 2 ** (b - 1)
+            round_value = 2 ** (b + 1 - r_bit)
+            outlier_id = (max_dim1 >= mul_xth) & (max_dim1 < mul_xth * 2)
+            cond2 = max_dim1 >= (2 * mul_xth - 2 ** (b - 4))
+...
+
+```
+#### **Perplexity on Wikitext & C4**
+- Perplexity after applying QRazor quantization
+- W4A16: Shows similar ppl with GPTQ up to groupsize of 32, but is more stable regardless of calibration dataset.
+- W4A8: Weights are first quantized to INT8 and compressed to INT4 while Activations are first quanted to INT16 and compressed to INT8 with granularity of per-tensor for both cases.
+- W4A4: Weights are first quantized to INT8 and compressed to INT4 while Activations are first quanted to INT16 and compressed to INT4 with granularity of per-tensor for both cases.
+- W4KV4: Weights and KV caches are both first quantized to INT8 and compressed to INT4.
+- W4A4KV4: Weights and KV caches are first quantized to INT8 and compressed to INT4 while Activations are first quanted to INT16 and compressed to INT4 with granularity of per-tensor for all cases.
+  
+|         Model         |Bits(QRazor groupsize/Eff.bit) |        Method       |Wikitext|   C4   |
+| :-------------------: | :---------------------------: | :-----------------: |:------:| :----: |
+| LLaMA-3.1-8B-Instruct |               16              |           -         |  7.22  | 10.39  |
+|                       |         W4A16(g8/4.5)         |        QRazor       |  7.72  | 11.03  | 
+|                       |         W4A16(g16/4.25)       |                     |  7.91  | 11.34  |
+|                       |         W4A16(g32/4.13)       |                     |  8.00  | 11.52  |
+|                       |         W4A16(g64/4.06)       |                     |  8.12  | 11.72  |
+|                       |         W4A16(g128/4.03)      |                     |  8.37  | 12.02  |
+
+
+|         Model         |Bits(QRazor groupsize/Eff.bit) |        Method       |Wikitext|   C4   |
+| :-------------------: | :---------------------------: | :-----------------: |:------:| :----: |
+| LLaMA-3.1-8B-Instruct |             W4A16             |        GPTQ(wiki)   |  7.91  | 13.11  |
+|                       |             W4A16             |        GPTQ(C4)     |  8.39  | 12.09  |
+|                       |         W4A16(g8/4.38)         | GPTQ(wiki) + QRazor |  7.49  | 10.93  | 
+|                       |         W4A16(g16/4.19)       |                     |  7.58  | 11.16  |
+|                       |         W4A16(g32/4.10)       |                     |  7.67  | 11.37  |
+|                       |         W4A16(g64/4.05)       |                     |  7.75  | 11.54  |
+|                       |         W4A16(g128/4.03)      |                     |  7.80  | 11.67  |
+|                       |         W4A16(g8/4.38)         |  GPTQ(C4) + QRazor  |  7.65  | 10.79  | 
+|                       |         W4A16(g16/4.19)       |                     |  7.77  | 10.95  |
+|                       |         W4A16(g32/4.10)       |                     |  7.87  | 11.12  |
+|                       |         W4A16(g64/4.05)       |                     |  7.98  | 11.29  |
+|                       |         W4A16(g128/4.03)      |                     |  8.03  | 11.36  |
+
+
+
+|         Model         |Bits(QRazor groupsize/Eff.bit)|     Quantization Granularity      | Method |Wikitext|   C4   |
+| :-------------------: | :---------------------------: | :------------------------------: |:------:|:------:| :----: |
+| LLaMA-3.1-8B-Instruct |               16              |                 -                |    -   |  7.22  | 10.39  |
+|                       |         W4A8(g8/4.38)          |  Per-Channel(NA)/Per-Tensor(NA)  | QRazor |  7.17  | 11.10  |
+|                       |         W4A8(g16/4.19)        |                                  |        |  7.94  | 11.38  |
+|                       |         W4A8(g32/4.10)        |                                  |        |  8.05  | 11.61  |
+|                       |         W4A8(g64/4.06)        |                                  |        |  8.15  | 11.77  |
+|                       |         W4A8(g128/4.03)       |                                  |        |  8.42  | 12.09  |
+|                       |         W4A4(g8/4.38)          |                                  |        |  8.26  | 11.76  |
+|                       |         W4A4(g16/4.19)        |                                  |        |  8.82  | 12.49  |
+|                       |         W4A4(g32/4.10)        |                                  |        |  9.53  | 13.40  |
+
+
+
+|         Model         |Bits(QRazor groupsize/Eff.bit)|     Quantization Granularity      | Method |Wikitext|   C4   |
+| :-------------------: | :---------------------------: | :------------------------------: |:------:|:------:| :----: |
+| LLaMA-3.1-8B-Instruct |               16              |                 -                |    -   |  7.22  | 10.39  |
+|                       |         W4KV4(g8/4.38)         |     Per-Channel/Per-Tensor(NA)   | QRazor |  8.01  | 11.41  |
+|                       |         W4KV4(g16/4.19)       |                                  |        |  8.41  | 11.95  |
+|                       |         W4KV4(g32/4.10)       |                                  |        |  8.85  | 12.62  |
+|                       |         W4A4KV4(g8/4.38)       |Per-Channel/Per-Tensor/Per-Tensor(NA) |        |  8.65  | 12.27  |
+|                       |         W4A4KV4(g16/4.19)     |                                  |        |  9.59  | 13.42  |
+|                       |         W4A4KV4(g32/4.10)     |                                  |        |  11.06 | 15.21  |
+
+
+*A: asymmetric, NA: symmetric
+...
+
+
+#### Conversational Ability
+By setting `chat=true`, you can run a chatbot simulation using the quantized model.
+|          Prompt from User         | Give me a short introduction about the knowledge distillation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |   |
+|:---------------------------------:|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
+| 16-bit Baseline (Wiki2 ppl: 7.22) | Knowledge distillation is a machine learning technique used to transfer knowledge from a complex, large, and computationally expensive model (known as the teacher model) to a smaller, simpler, and more efficient model (known as the student model). The goal of knowledge distillation is to preserve the performance of the teacher model while reducing its size and computational requirements, making it more suitable for deployment in resource-constrained environments. The process involves training the student model on the output of the teacher model, rather than the original training data. This allows the student model to learn the patterns and relationships in the data that ... |   |
+|    W4A16 RTN (Wiki2 ppl: 9.46)    | Knowledge Distillation is a machine learning technique that enables a smaller model to learn from a larger model. It was first introduced by Google in 2015. The main idea behind knowledge distillation is to transfer knowledge from a complex model to a simpler model, allowing the simpler model to learn from the complex model's outputs. The process involves training the complex model on the training data and then training the simpler model on the outputs of the complex model. The outputs of the complex model are used as soft labels for the simpler model, allowing it to learn from the complex model's predictions. ...                                                              |   |
+|    W4A16(g128) QRazor (Wiki2 ppl: 8.37)    | Knowledge distillation is a machine learning technique used to train a smaller, more efficient model (the "student") to mimic the behavior of a larger, more complex model (the "teacher"). This technique is inspired by the human process of learning, where a student learns from a more experienced teacher. In the context of deep learning, knowledge distillation involves training the student model to predict the output of the teacher model for a given input. The student model is then trained to minimize the difference between its predictions and the teacher model's predictions. ...                                                                   |   |
+|    W4A16(g128) GPTQ(wiki) + QRazor (Wiki2 ppl: 7.80)    | Knowledge distillation is a deep learning technique used to transfer knowledge from a complex, high-capacity model (the "teacher") to a smaller, simpler model (the "student"). The goal is to distill the essential information from the complex model and transfer it to the simpler model, allowing the student model to learn from the teacher model's knowledge without replicating its complexity. Knowledge distillation was first introduced in the context of neural networks, where the teacher model is a large, complex neural network, and the student model is a smaller neural network. The process involves training the student model on the teacher model's output, rather than the original training data, to learn the most important features and patterns...                                                                   |   |
+|    W4A16(g128) GPTQ(C4) + QRazor (Wiki2 ppl: 8.03)    | Knowledge distillation is a process of reducing the complexity of a complex system or model, while preserving its essential features and performance. It involves extracting the most important information or knowledge from a large dataset, model, or system, and representing it in a simpler and more compact form. This can be achieved through various techniques, such as dimensionality reduction, feature selection, and model compression. The goal of knowledge distillation is to: 1.  **Simplify complex systems**: By reducing the number of parameters, variables, or components, knowledge distillation makes it easier to understand, analyze, and maintain complex systems... |   |
+
+
+
+|          Prompt from User         | "Imagine you are participating in a race with a group of people. If you have just overtaken the third person, what's your current position? Where is the person you just overtook?"                                                       |   |
+|:---------------------------------:|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
+| 16-bit Baseline (Wiki2 ppl: 7.22) | If you have just overtaken the third person, that means you were behind them before, but now you are ahead of them.  You are now in the 3rd position, and the person you just overtook is now in the 4th position.                      |   |
+|     W4A8(g128) QRazor (Wiki2 ppl: 8.42)    | Imagine you are participating in a race with a group of people. If you have just overtaken the third person, what's your current position? Where is the person you just overtook? If I've just overtaken the third person, that means I was behind them, but now I'm in front of them. So, my current position is second, and the person I just overtook is now in third place.            |   |
+|     W4A4(g32) QRazor (Wiki2 ppl: 9.53)     | If I have just overtaken the third person, that means I was behind them initially. After overtaking them, I am now in their position, which is the third position. The person I just overtook is now behind me, in the fourth position.                           |   |
+|     W4KV4(g32) QRazor (Wiki2 ppl: 8.85)    | If you've just overtaken the third person, that means you've moved past them and are now in their position. So, you are now in third place, and the person you just overtook is now behind you, in fourth place. |   |
+|     W4A4KV4(g16) QRazor (Wiki2 ppl: 9.59)     | If I've just overtaken the third person, that means I've moved ahead of them. Therefore, the person I just overtook is now behind me. So, I am now in the third position, and the person I just overtook is in the fourth position.     |   |
+|     W4A4KV4(g32) QRazor (Wiki2 ppl: 11.06)     | You are currently in the second position. The person you just overtook is now behind you in the third position.      |   |
+  
+
 
 
 ***
@@ -427,35 +646,12 @@ For LLaMA models, we have empirically observed that enabling the ```gptq_act_ord
 eval_ppl=true
 eval_ppl_seqlen=2048
 # Quantization
-a_per_tensor=false
-a_per_token=false
 bits_a=16
 sym_a=false
 groupsize_a=-1
-w_per_channel=true
 bits_w=4
 sym_w=false
 groupsize_w=-1
-q_per_tensor=true
-q_per_token=false
-bits_q=16
-sym_q=true
-groupsize_q=-1
-k_per_tensor=true
-k_per_token=false
-bits_k=16
-sym_k=true
-groupsize_k=-1
-v_per_tensor=true
-v_per_token=false
-bits_v=16
-sym_v=true
-groupsize_v=-1
-s_per_tensor=true
-s_per_token=false
-bits_s=16
-sym_s=false
-groupsize_s=-1
 # GPTQ
 gptq=true
 gptq_dataset=c4
@@ -1080,13 +1276,4 @@ url={https://openreview.net/forum?id=Q1u25ahSuy}
 }
 ```
 # Acknowledgment
-This open-source release is the result of a collaborative industry-academia project between Dinotitia and Hanyang University AIHA lab(led by Professor Jung-Wook Choi). 
-We sincerely appreciate the university's valuable contributions, including research insights, technical expertise, and academic support, which played a crucial role in the development of this work.
-
-We extend our gratitude to the faculty members, researchers, and students who participated in this project. Their dedication and expertise have significantly enriched the outcome, 
-enabling us to share this work with the open-source community.
-
-
-Dinotitia
-# Citation
-If you use our tool in your research or publications, we kindly ask you to cite our GitHub repository
+This project has been made possible through the support and contributions of [DNOTITIA](https://dnotitia.com/en/), whose funding and active participation have played a crucial role in its development. 
