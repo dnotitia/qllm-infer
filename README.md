@@ -534,7 +534,7 @@ def forward(ctx, x, q_bit, r_bit, group):
 ```
 #### **Perplexity on Wikitext & C4**
 - Perplexity after applying QRazor quantization
-- W4A16: Shows similar ppl with GPTQ up to groupsize of 32, but is more stable regardless of calibration dataset.
+- W4A16: Shows similar ppl with GPTQ up to groupsize of 32, but is more stable regardless of calibration dataset(Weights are all per-channel quantized).
 - W4A8: Weights are first quantized to INT8 and compressed to INT4 while Activations are first quanted to INT16 and compressed to INT8 with granularity of per-tensor for both cases.
 - W4A4: Weights are first quantized to INT8 and compressed to INT4 while Activations are first quanted to INT16 and compressed to INT4 with granularity of per-tensor for both cases.
 - W4KV4: Weights and KV caches are both first quantized to INT8 and compressed to INT4.
@@ -543,18 +543,18 @@ def forward(ctx, x, q_bit, r_bit, group):
 |         Model         |Bits(QRazor groupsize/Eff.bit) |        Method       |Wikitext|   C4   |
 | :-------------------: | :---------------------------: | :-----------------: |:------:| :----: |
 | LLaMA-3.1-8B-Instruct |               16              |           -         |  7.22  | 10.39  |
-|                       |         W4A16(g8/4.38)         |        QRazor       |  7.72  | 11.03  | 
-|                       |         W4A16(g16/4.19)       |                     |  7.91  | 11.34  |
-|                       |         W4A16(g32/4.10)       |                     |  8.00  | 11.52  |
-|                       |         W4A16(g64/4.05)       |                     |  8.12  | 11.72  |
-|                       |         W4A16(g128/4.03)      |                     |  8.37  | 12.02  |
+|                       |         W4A16(g8/4.38)        |         QRazor      |  7.68  | 11.03  | 
+|                       |         W4A16(g16/4.19)       |                     |  7.86  | 11.29  |
+|                       |         W4A16(g32/4.10)       |                     |  8.00  | 11.46  |
+|                       |         W4A16(g64/4.05)       |                     |  8.11  | 11.62  |
+|                       |         W4A16(g128/4.03)      |                     |  8.34  | 11.96  |
 
 
 |         Model         |Bits(QRazor groupsize/Eff.bit) |        Method       |Wikitext|   C4   |
 | :-------------------: | :---------------------------: | :-----------------: |:------:| :----: |
 | LLaMA-3.1-8B-Instruct |             W4A16             |        GPTQ(wiki)   |  7.91  | 13.11  |
 |                       |             W4A16             |        GPTQ(C4)     |  8.39  | 12.09  |
-|                       |             W4A16             |        AWQ          |  7.78  |   -    |
+|                       |             W4A16             |        AWQ          |  8.25  |   -    |
 |                       |         W4A16(g8/4.38)        | GPTQ(wiki) + QRazor |  7.49  | 10.93  | 
 |                       |         W4A16(g16/4.19)       |                     |  7.58  | 11.16  |
 |                       |         W4A16(g32/4.10)       |                     |  7.67  | 11.37  |
