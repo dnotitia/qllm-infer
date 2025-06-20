@@ -571,7 +571,7 @@ def forward(ctx, x, q_bit, r_bit, group):
 |         Model         |Bits(QRazor groupsize/Eff.bit)|     Quantization Granularity      | Method |Wikitext|   C4   |
 | :-------------------: | :---------------------------: | :------------------------------: |:------:|:------:| :----: |
 | LLaMA-3.1-8B-Instruct |               16              |                 -                |    -   |  7.22  | 10.39  |
-|                       |         W4A8(g8/4.38)          |  Per-Channel(NA)/Per-Tensor(NA)  | QRazor |  7.17  | 11.10  |
+|                       |         W4A8(g8/4.38)          |  Per-Channel(NA)/Per-Tensor(NA)  | QRazor |  7.71  | 11.10  |
 |                       |         W4A8(g16/4.19)        |                                  |        |  7.94  | 11.38  |
 |                       |         W4A8(g32/4.10)        |                                  |        |  8.05  | 11.61  |
 |                       |         W4A8(g64/4.06)        |                                  |        |  8.15  | 11.77  |
