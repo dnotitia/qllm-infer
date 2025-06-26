@@ -7,23 +7,20 @@ def quantize(x, scale, zero, maxq, sym, r_bit, r_group, bits, qrazor):
     if maxq < 0:
         return (x > scale / 2).float() * scale + (x < zero / 2).float() * zero
     if (sym):
-        q = torch.clamp(torch.round(x / scale) + zero, -maxq, maxq)
+        q = torch.clamp(torch.round(x / scale) + zero, -(maxq+1), maxq)
     else:
-        q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
+        if (qrazor):
+            q = torch.clamp(torch.round(x / scale), -(maxq+1), maxq)
+            zero = 0
+        else:
+            q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
 
 
     if qrazor:
-        if not sym:
-            sign = torch.sign(q-zero)
-            q_abs = torch.abs(q-zero)
-            q = QRazor.apply(q_abs, bits, r_bit, r_group)
-            q = sign * q + zero
-            
-        else:
-            sign = torch.sign(q)         # -1, 0, 1 중 하나
-            q_abs = torch.abs(q)
-            q = QRazor.apply(q_abs, bits, r_bit, r_group)
-            q = sign * q
+        sign = torch.sign(q)      
+        q_abs = torch.abs(q)
+        q = QRazor.apply(q_abs, sign, bits, r_bit, r_group)
+        q = sign * q
 
     return scale * (q - zero)
 
