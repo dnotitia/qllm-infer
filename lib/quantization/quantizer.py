@@ -126,24 +126,19 @@ class Quantizer(nn.Module):
                     self.zero[tmp] = zero1[tmp]
 
         if self.qrazor and self.comp_aware:
-            # x:  (C, N)  -- 위쪽 코드에서 perchannel 정규화된 형태
             scale  = self.scale.unsqueeze(1)   # (C,1)
             zero   = self.zero.unsqueeze(1)    # (C,1)  (sym일 때는 0)
 
-            # QRazor까지 포함한 ‘모사 양자화’ 실행
             x_hat  = quantize(
                 x, scale, zero, self.maxq, self.sym,
                 self.r_bit, self.r_group, self.bits, self.qrazor)
 
-            # x_hat = scale * (q_int)  이므로  q_int = x_hat / scale
             q_int  = x_hat / scale
 
-            # 최소제곱:  s* = <x, q_int> / <q_int, q_int>
             num = (x * q_int).sum(dim=1)
             den = (q_int.pow(2)).sum(dim=1).clamp_min(1e-12)
-            s_ls = num / den         # (C,)
+            s_ls = num / den      
 
-            # 스케일만 갱신 (제로포인트는 그대로)
             self.scale = s_ls
 
 
