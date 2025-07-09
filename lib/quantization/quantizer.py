@@ -10,7 +10,7 @@ def quantize(x, scale, zero, maxq, sym, r_bit, r_group, bits, qrazor):
         q = torch.clamp(torch.round(x / scale) + zero, -(maxq+1), maxq)
     else:
         if (qrazor):
-            q = torch.clamp(torch.round(x / scale), -(maxq+1), maxq)
+            q = torch.clamp(torch.round(x / scale), -maxq, maxq)
             zero = 0
         else:
             q = torch.clamp(torch.round(x / scale) + zero, 0, maxq)
