@@ -494,7 +494,7 @@ def quantize_nearest(model, args, dev):
         for name in subset:
             quantizer = Quantizer()
             quantizer.configure(
-                args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=True
+                args.bits_w, args.w_qrazor_bits, args.w_qrazor_group, args.w_qrazor, args.w_per_channel, sym=args.sym_w, mse=False
             )
             W = subset[name].weight.data
             shape_ = W.shape
