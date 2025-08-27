@@ -29,6 +29,36 @@ QLLM_PATH=${PWD}/qllm-infer
 cd /root/qllm-infer && pip install -r requirements.txt
 cd /root/qllm-infer/lm-evaluation-harness && pip install -e .
 ```
+## 📂File Structure
+- ├── main.py/ # Model Selection, Quantization Method & Granularity Selection
+  
+- ├── lib/ # Quantization Method + Quantizer Class
+  
+	- ├── gptq # GPTQ Weight Quantization Method
+
+	- ├── spqr # SPQR Weight Quantization Method
+
+	- ├── smoothquant # Smoothquant W/A Quantization Method (Activation Channel-wise observation)
+
+	- ├── zeroquant # Zeroquant W/A Quantization Method
+
+	- ├── kivi # KV Cache Quantization
+
+	- ├── kvquant # KV Cache Quantization
+
+	- └── quantization # Quantization Specifics for Transformer Blocks
+
+		- ├──attention.py # Transformer Attention Block of Different Models
+
+		- ├──quantizer.py # Transformer Quantization Method
+
+		- ├──weight_quant.py # Weight Quantization Method
+
+		- ├──act_quant.py # Activation Quantization Method
+
+- ├── script/ # Simulation Run Scripts( Argument Value Selection )
+	
+└── README.md # Project documentation
 
 ## Quick Links
 - [Weight-Activation Quantization](https://github.com/dnotitia/qllm-infer?tab=readme-ov-file#weight-activation-quantization)
